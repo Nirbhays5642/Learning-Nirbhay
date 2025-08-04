@@ -1,0 +1,80 @@
+- name: Validating checklist before deploying monitoring setup.
+  hosts: localhost
+  gather_facts: false
+  vars:
+    env_tags: ["prod", "production", "preprod", "staging"]
+    check_tags:
+      - monitoring_node
+      - process
+      - mysql
+      - mongodb
+      - redis
+      - postgres
+      - elasticsearch
+      - kafka
+    provisioning_instances: []
+  tasks:
+    # check and validate correct tagging
+    - name: Get EC2 instances with Environment tag
+      amazon.aws.ec2_instance_info:
+        region: "{{ lookup('env', 'AWS_REGION') | default('us-east-1') }}"
+        filters:
+          "tag:Environment": "{{ env_tags }}"
+      register: ec2_info
+
+    - name: Get list of provision instance.
+      ansible.builtin.set_fact:
+        provisioning_instances: "{{ provisioning_instances + [ summary ] }}"
+      vars:
+        summary:
+          Instance_ID: "{{ item.instance_id }}"
+          Name: "{{ item.tags.Name | default('N/A') }}"
+          Environment: "{{ item.tags.Environment }}"
+          Matching_Tags: >-
+            {{
+              item.tags | dict2items
+                        | selectattr('key', 'in', check_tags)
+                        | selectattr('value', 'equalto', 'yes')
+                        | map(attribute='key') | list
+            }}
+      loop: "{{ ec2_info.instances }}"
+      loop_control:
+        label: "{{ item.tags.Name | default(item.instance_id) }}"
+      when: >
+        item.tags is defined and
+        (
+          item.tags | dict2items
+                    | selectattr('key', 'in', check_tags)
+                    | selectattr('value', 'equalto', 'yes')
+                    | list | length > 0
+        )
+
+    - name: Full list of provision instances with tagging.
+      ansible.builtin.debug:
+        var: provisioning_instances
+
+    # check and validate blackbkox target var file
+    - name: Validate blackbkox target var file
+      ansible.builtin.shell: yamllint vars/blackbox_targets_vars.yaml
+      register: yamllint_result
+      ignore_errors: true
+
+    - name: Error in the blackbkox target var file.
+      ansible.builtin.debug:
+        var: yamllint_result.stdout_lines
+      when: yamllint_result.rc != 0
+      failed_when: yamllint_result.rc != 0
+      changed_when: false
+
+    # # check and validate blackbkox rules var file
+    # - name: Validate Prometheus rules
+    #   ansible.builtin.shell: promtool check rules vars/blackbox_rules_vars.yaml
+    #   register: promtool_result
+    #   ignore_errors: true
+
+    # - name: Error in the blackbkox rules var file.
+    #   ansible.builtin.debug:
+    #     var: promtool_result.stderr_lines
+    #   when: promtool_result.rc != 0
+    #   failed_when: promtool_result.rc != 0
+    #   changed_when: false

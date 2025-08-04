@@ -1,0 +1,10 @@
+---
+# handlers file for elasticsearch-exporter
+- name: "Start elasticsearch_exporter"
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: elasticsearch_exporter.service
+    enabled: yes
+    state: started
+    daemon_reload: yes

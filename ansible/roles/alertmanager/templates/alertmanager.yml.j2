@@ -1,0 +1,114 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: "{{ smtp_smarthost }}"
+  smtp_from: "{{ smtp_from }}"
+  smtp_require_tls: {{ smtp_require_tls }}
+  smtp_auth_username: "{{ smtp_auth_username }}"
+  smtp_auth_password: "{{ smtp_auth_password }}"
+
+route:
+  receiver: 'slack'
+  group_by: ['instance', 'alert', 'alertname', 'alerts', 'name', 'job']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # Warnings Alerts
+    - match:
+        severity: warning
+      continue: true
+      receiver: slack
+      group_by: ['alertname', 'instance']
+
+    - match:
+        severity: warning
+      continue: true
+      receiver: email
+      group_by: ['alertname', 'instance']
+
+    - match:
+        alertname: BlackboxSslCertificateWillExpireSoon
+        severity: warning
+      continue: true
+      receiver: slack
+      group_by: ['alertname', 'instance']
+      repeat_interval: 24h
+
+
+    # Critical Alerts
+    - match:
+        severity: critical
+      continue: true
+      receiver: squadcast
+      group_by: ['alertname', 'instance']
+      repeat_interval: 1h
+
+    - match_re:
+        alertname: "BlackboxSslCertificate.*"
+        severity: critical
+      continue: true
+      receiver: squadcast
+      group_by: ['alertname', 'instance']
+      repeat_interval: 1h
+
+
+    # Deadmans Switch Alerts
+    - match:
+        alertname: DeadMansSwitch
+      receiver: 'deadmans-switch'
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 5m
+
+inhibit_rules:
+  - target_matchers:
+      - alertname="MysqlDown"
+    source_matchers:
+      - alertname=~"URL.*"
+    equal: ["severity"]
+
+  - target_matchers:
+      - severity="warning"
+    source_matchers:
+      - severity="critical"
+    equal: ["alertname", "instance"]
+
+receivers:
+  - name: 'deadmans-switch'
+    webhook_configs:
+      - url: "{{ deadmans_url }}"
+        send_resolved: false
+
+  - name: 'slack'
+    slack_configs:
+      - api_url: "{{ slack_url }}"
+        channel: "{{ slack_channel }}"
+        send_resolved: true
+{% raw %}
+        title: '{{ template "slack.title" . }}'
+        text: '{{ template "slack.text" . }}'
+        actions:
+          - type: "button"
+            text: "Silence :no_bell:"
+            url: '{{ template "slack.silence_url" . }}'
+          - type: "button"
+            text: "Dashboard :chart_with_upwards_trend:"
+            url: '{{ .CommonLabels.dashboard_url }}'
+{% endraw %}
+
+  - name: 'email'
+    email_configs:
+      - to: "{{ email_list | join(', ') }}"
+        send_resolved: true
+        headers:
+{% raw %}
+          subject: '{{ template "email.subject" . }}'
+{% endraw %}
+
+  - name: 'squadcast'
+    webhook_configs:
+      - url: "{{ squadcast_url }}"
+        send_resolved: true
+
+templates:
+  - /etc/alertmanager/templates/*.tmpl

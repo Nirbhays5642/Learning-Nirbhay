@@ -1,0 +1,75 @@
+---
+# tasks file for grafana
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - software-properties-common
+      - wget
+    state: present
+    update_cache: yes
+
+- name: Ensure keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/
+    state: directory
+    mode: '0755'
+
+- name: Add Grafana GPG key
+  ansible.builtin.shell: wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
+  args:
+    creates: /etc/apt/keyrings/grafana.gpg
+
+- name: Add Grafana APT repository
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list.d/grafana.list
+    line: "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main"
+    create: yes
+
+- name: Update APT cache
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install Grafana
+  ansible.builtin.apt:
+    name: grafana
+    state: present
+
+- name: Copy datasource and dashboard provisioning file
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: grafana
+    mode: '0644'
+  loop:
+    - { src: "datasource.yaml" , dest: "/etc/grafana/provisioning/datasources" } 
+    - { src: "dashboard.yaml" , dest: "/etc/grafana/provisioning/dashboards" }
+
+- name: Create directory to store dashboard json file.
+  ansible.builtin.file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    owner: grafana
+    group: grafana
+  notify:
+    - Start grafana
+
+- name: Copy node and blackbox exporter dashboard json file.
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /var/lib/grafana/dashboards
+    owner: grafana
+    group: grafana
+  loop:
+    - node-dashboard.json
+    - blackbox-dashboard.json
+
+- name: Copy all other exporter dashboard json files.
+  ansible.builtin.copy:
+    src: "{{ item }}-dashboard.json"
+    dest: /var/lib/grafana/dashboards
+    owner: grafana
+    group: grafana
+  loop: "{{ group_names | difference(['monitoring_node']) }}"
+

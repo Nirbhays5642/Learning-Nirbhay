@@ -1,0 +1,10 @@
+---
+# handlers file for grafana
+- name: "Start grafana"
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: grafana-server.service
+    enabled: yes
+    state: started
+    daemon_reload: yes

@@ -1,0 +1,11 @@
+---
+# defaults file for prometheus
+exporter_ports:
+  mysql: 9104
+  mongodb: 9216
+  redis: 9121
+  blackbox: 9115
+  postgres: 9187
+  elasticsearch: 9114
+  kafka: 9308
+  process: 9256

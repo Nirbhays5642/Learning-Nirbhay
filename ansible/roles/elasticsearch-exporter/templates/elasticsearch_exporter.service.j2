@@ -1,0 +1,26 @@
+[Unit]
+Description=ElasticSearch Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=elasticsearch_exporter
+Group=elasticsearch_exporter
+Type=simple
+Restart=on-failure
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/local/bin/elasticsearch_exporter \
+    --es.uri="{{ elastic_url }}" \
+    --es.ca="{{ elastic_ca_crt_path }}" \
+    --es.timeout=10s \
+    --es.all \
+    --es.indices \
+    --es.indices_settings \
+    --es.indices_mappings \
+    --es.aliases \
+    --es.shards \
+    --es.data_stream \
+    --web.listen-address=":9114"
+
+[Install]
+WantedBy=multi-user.target

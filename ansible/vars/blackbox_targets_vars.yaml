@@ -1,0 +1,19 @@
+blackbox_targets:
+  blackbox_http:
+    job_name: "blackbox-http"
+    targets:
+      - url: "http://api.example.com"
+        module: "http_2xx"
+        name: "web-api"
+      - url: "https://example.com"
+        module: "http_2xx"
+        name: "web"
+  blackbox_icmp:
+    job_name: "blackbox-icmp"
+    targets:
+      - url: "1.1.1.1"
+        module: "icmp"
+        name: "network"
+      - url: "8.8.8.8"
+        module: "icmp"
+        name: "google-dns"

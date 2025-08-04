@@ -1,0 +1,120 @@
+groups:
+- name: NodeExporter
+  rules:
+# Instance down
+  - alert: "InstanceDown"
+    expr: "up == 0"
+    for: "0m"
+    labels:
+      severity: critical
+    annotations:
+      summary: "Instance {{ $labels.instance }} down"
+      description: "Instance {{ $labels.instance }} of job {{ $labels.job }} is down."
+#  Node memory is filling up (< 10% left)
+  - alert: HostOutOfMemory
+    expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < .10)
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host out of memory (instance {{ $labels.instance }})
+      description: "Node memory is filling up (< 10% left)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  Disk is too busy (IO wait > 80%)
+  - alert: HostUnusualDiskReadRate
+    expr: (rate(node_disk_io_time_seconds_total[5m]) > .80)
+    for: 0m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host unusual disk read rate (instance {{ $labels.instance }})
+      description: "Disk is too busy (IO wait > 80%)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  Disk is almost full (< 10% left)
+  - alert: HostOutOfDiskSpace
+    expr: (node_filesystem_avail_bytes{fstype!~"^(fuse.*|tmpfs|cifs|nfs)"} / node_filesystem_size_bytes < .10 and on (instance, device, mountpoint) node_filesystem_readonly == 0)
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: Host out of disk space (instance {{ $labels.instance }})
+      description: "Disk is almost full (< 10% left)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  Filesystem will likely run out of space within the next 24 hours.
+  - alert: HostDiskMayFillIn24Hours
+    expr: predict_linear(node_filesystem_avail_bytes{fstype!~"^(fuse.*|tmpfs|cifs|nfs)"}[1h], 86400) <= 0 and node_filesystem_avail_bytes > 0
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host disk may fill in 24 hours (instance {{ $labels.instance }})
+      description: "Filesystem will likely run out of space within the next 24 hours.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  Disk is almost running out of available inodes (< 10% left)
+  - alert: HostOutOfInodes
+    expr: (node_filesystem_files_free / node_filesystem_files < .10 and ON (instance, device, mountpoint) node_filesystem_readonly == 0)
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: Host out of inodes (instance {{ $labels.instance }})
+      description: "Disk is almost running out of available inodes (< 10% left)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  Filesystem will likely run out of inodes within the next 24 hours at current write rate
+  - alert: HostInodesMayFillIn24Hours
+    expr: predict_linear(node_filesystem_files_free{fstype!~"^(fuse.*|tmpfs|cifs|nfs)"}[1h], 86400) <= 0 and node_filesystem_files_free > 0
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host inodes may fill in 24 hours (instance {{ $labels.instance }})
+      description: "Filesystem will likely run out of inodes within the next 24 hours at current write rate\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  CPU load is > 80%
+  - alert: HostHighCpuLoad
+    expr: (avg by (instance) (rate(node_cpu_seconds_total{mode!="idle"}[2m]))) > .80
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host high CPU load (instance {{ $labels.instance }})
+      description: "CPU load is > 80%\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  Disk usage >80%. Check storage for issues or increase IOPS capabilities. Check storage for issues.
+  - alert: HostUnusualDiskIo
+    expr: rate(node_disk_io_time_seconds_total[5m]) > 0.8
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host unusual disk IO (instance {{ $labels.instance }})
+      description: "Disk usage >80%. Check storage for issues or increase IOPS capabilities. Check storage for issues.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  Swap is filling up (>80%)
+  - alert: HostSwapIsFillingUp
+    expr: ((1 - (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes)) * 100 > 80)
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host swap is filling up (instance {{ $labels.instance }})
+      description: "Swap is filling up (>80%)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  systemd service crashed
+  - alert: HostSystemdServiceCrashed
+    expr: (node_systemd_unit_state{state="failed"} == 1)
+    for: 0m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host systemd service crashed (instance {{ $labels.instance }})
+      description: "systemd service crashed\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  OOM kill detected
+  - alert: HostOomKillDetected
+    expr: (increase(node_vmstat_oom_kill[1m]) > 0)
+    for: 0m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host OOM kill detected (instance {{ $labels.instance }})
+      description: "OOM kill detected\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  Clock skew detected. Clock is out of sync. Ensure NTP is configured correctly on this host.
+  - alert: HostClockSkew
+    expr: ((node_timex_offset_seconds > 0.05 and deriv(node_timex_offset_seconds[5m]) >= 0) or (node_timex_offset_seconds < -0.05 and deriv(node_timex_offset_seconds[5m]) <= 0))
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host clock skew (instance {{ $labels.instance }})
+      description: "Clock skew detected. Clock is out of sync. Ensure NTP is configured correctly on this host.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"

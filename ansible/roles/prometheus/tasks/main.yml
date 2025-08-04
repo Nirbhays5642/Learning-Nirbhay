@@ -1,0 +1,119 @@
+---
+# tasks file for prometheus
+- name: "Create prometheus user"
+  ansible.builtin.user:
+    name: prometheus
+    shell: /bin/false
+    create_home: no
+
+- name: "Create prometheus group"
+  ansible.builtin.group:
+    name: prometheus
+    state: present
+
+- name: "Create prometheus directories"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - /etc/prometheus
+    - /etc/prometheus/rules
+    - /etc/prometheus/targets
+    - /var/lib/prometheus
+
+- name: "Get latest prometheus release URL"
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/prometheus/prometheus/releases/latest | \
+    grep "browser_download_url.*linux-amd64.tar.gz" | \
+    cut -d '"' -f 4
+  register: prometheus_package_url
+
+- name: "Download latest prometheus release"
+  ansible.builtin.get_url:
+    url: "{{ prometheus_package_url.stdout }}"
+    dest: "/tmp/prometheus-linux-amd64.tar.gz"
+  when: prometheus_package_url.stdout != ""
+
+- name: "Create a directory if it does not exist"
+  ansible.builtin.file:
+    path: /tmp/prometheus-linux-amd64
+    state: directory
+
+- name: "Extract prometheus file"
+  ansible.builtin.unarchive:
+    src: /tmp/prometheus-linux-amd64.tar.gz
+    dest: /tmp/prometheus-linux-amd64
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+
+- name: "Move prometheus binaries"
+  ansible.builtin.copy:
+    src: "/tmp/prometheus-linux-amd64/{{ item }}"
+    dest: /usr/local/bin/
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - prometheus
+    - promtool
+
+- name: "Copy prometheus service file"
+  ansible.builtin.template:
+    src: prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+    owner: root
+    group: root
+
+- name: "Copying node exporter and deadman-switch rule file."
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /etc/prometheus/rules/
+  loop:
+    - host-rules.yaml
+    - deadmans-rules.yaml
+
+- name: "Copying blackbox exporter rule file."
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /etc/prometheus/rules/
+  loop:
+    - blackbox-rules.yaml
+
+- name: "Copying all other exporter rule files."
+  ansible.builtin.copy:
+    src: "{{ item }}-rules.yaml"
+    dest: /etc/prometheus/rules/
+  loop: "{{ group_names | difference(['monitoring_node']) }}"
+  ignore_errors: True
+
+- name: "Copy blackbox target file in prometheus config path."
+  ansible.builtin.template:
+    src: blackbox-targets.yaml.j2
+    dest: "/etc/prometheus/targets/{{ item.value.job_name }}.yaml"
+    owner: prometheus
+    group: prometheus
+    mode: 0644
+  loop: "{{ blackbox_targets | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  vars:
+    group: "{{ item.value }}"
+
+- name: "Copy prometheus configuration for {{ provider }}."
+  ansible.builtin.template:
+    src: "{{ provider }}-prometheus.yml.j2"
+    dest: /etc/prometheus/prometheus.yml
+    owner: prometheus
+    group: prometheus
+    mode: 0644
+  notify:
+    - Start prometheus
+
+- name: "Clean up temporary files"
+  ansible.builtin.file:
+    path: "/tmp/prometheus-linux-amd64"
+    state: absent

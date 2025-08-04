@@ -1,0 +1,24 @@
+plugin: aws_ec2
+regions:
+  - "{{ lookup('env', 'AWS_REGION') | default('us-east-1') }}"
+filters:
+  instance-state-name : running
+  tag:Environment:
+    - prod
+    - production
+    - preprod
+    - staging
+
+groups:
+  monitoring_node: "'yes' in tags.monitoring_node"
+  process: "'yes' in tags.process"
+  mysql: "'yes' in tags.mysql"
+  mongodb: "'yes' in tags.mongodb"
+  redis: "'yes' in tags.redis"
+  postgres: "'yes' in tags.postgres"
+  elasticsearch: "'yes' in tags.elasticsearch"
+  kafka: "'yes' in tags.kafka"
+
+hostnames:
+  - private-dns-name
+  - private-ip-address

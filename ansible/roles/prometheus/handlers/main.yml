@@ -1,0 +1,10 @@
+---
+# handlers file for prometheus
+- name: "Start prometheus"
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: prometheus.service
+    enabled: yes
+    state: started
+    daemon_reload: yes

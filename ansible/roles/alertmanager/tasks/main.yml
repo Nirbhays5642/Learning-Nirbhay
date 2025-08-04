@@ -1,0 +1,103 @@
+---
+# tasks file for alertmanager
+- name: "Create alertmanager user"
+  ansible.builtin.user:
+    name: alertmanager
+    shell: /bin/false
+    create_home: no
+
+- name: "Create alertmanager group"
+  ansible.builtin.group:
+    name: alertmanager
+    state: present
+
+- name: "Create alertmanager directories"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+    owner: alertmanager
+    group: alertmanager
+    mode: '0755'
+  loop:
+    - /etc/alertmanager
+    - /var/lib/alertmanager
+    - /etc/alertmanager/templates/
+
+- name: "Get latest alertmanager release URL"
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/prometheus/alertmanager/releases/latest | \
+    grep "browser_download_url.*linux-amd64.tar.gz" | \
+    cut -d '"' -f 4
+  register: alertmanager_package_url
+
+- name: "Download latest alertmanager release"
+  ansible.builtin.get_url:
+    url: "{{ alertmanager_package_url.stdout }}"
+    dest: "/tmp/alertmanager-linux-amd64.tar.gz"
+  when: alertmanager_package_url.stdout != ""
+
+- name: "Create a directory if it does not exist"
+  ansible.builtin.file:
+    path: /tmp/alertmanager-linux-amd64
+    state: directory
+
+- name: "Extract alertmanager file"
+  ansible.builtin.unarchive:
+    src: /tmp/alertmanager-linux-amd64.tar.gz
+    dest: /tmp/alertmanager-linux-amd64
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+
+- name: "Move alertmanager config file"
+  ansible.builtin.copy:
+    src: "/tmp/alertmanager-linux-amd64/alertmanager.yml"
+    dest: "/etc/alertmanager/alertmanager.yml"
+    remote_src: yes
+    owner: alertmanager
+    group: alertmanager
+    mode: '0644'
+
+- name: "Move alertmanager binaries"
+  ansible.builtin.copy:
+    src: "/tmp/alertmanager-linux-amd64/{{ item }}"
+    dest: /usr/local/bin/
+    owner: alertmanager
+    group: alertmanager
+    mode: '0755'
+  loop:
+    - alertmanager
+    - amtool
+
+- name: "Copy alertmanager service file"
+  ansible.builtin.template:
+    src: alertmanager.service.j2
+    dest: /etc/systemd/system/alertmanager.service
+    owner: root
+    group: root
+
+- name: "Copy alertmanager template file"
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /etc/alertmanager/templates/
+    owner: alertmanager
+    group: alertmanager
+    mode: '0644'
+  loop:
+    - email.tmpl
+    - slack.tmpl
+
+- name: "Copy alertmanager configuration."
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: /etc/alertmanager/alertmanager.yml
+    owner: alertmanager
+    group: alertmanager
+    mode: 0644
+  notify:
+    - Start alertmanager
+
+- name: "Clean up temporary files"
+  ansible.builtin.file:
+    path: "/tmp/alertmanager-linux-amd64"
+    state: absent

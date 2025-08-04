@@ -1,0 +1,19 @@
+[Unit]
+Description=Alertmanager
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=alertmanager
+Group=alertmanager
+Type=simple
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/local/bin/alertmanager \
+    --config.file=/etc/alertmanager/alertmanager.yml \
+    --storage.path=/var/lib/alertmanager/ \
+    --data.retention=240h \
+    --web.external-url="{{ alertmanager_url }}" \
+    --web.listen-address=0.0.0.0:9093
+
+[Install]
+WantedBy=multi-user.target

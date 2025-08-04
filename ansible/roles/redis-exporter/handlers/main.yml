@@ -1,0 +1,10 @@
+---
+# handlers file for redis-exporter
+- name: "Start redis_exporter"
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: redis_exporter.service
+    enabled: yes
+    state: started
+    daemon_reload: yes

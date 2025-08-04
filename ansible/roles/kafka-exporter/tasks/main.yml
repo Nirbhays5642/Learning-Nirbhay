@@ -1,0 +1,53 @@
+---
+# tasks file for kafka-exporter
+- name: "Create kafka_exporter user"
+  ansible.builtin.user:
+    name: kafka_exporter
+    shell: /bin/false
+    create_home: no
+
+- name: "Create kafka_exporter group"
+  ansible.builtin.group:
+    name: kafka_exporter
+    state: present
+
+- name: "Get latest kafka_exporter release URL"
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/danielqsj/kafka_exporter/releases/latest | \
+    grep "browser_download_url.*linux-amd64.tar.gz" | \
+    cut -d '"' -f 4
+  register: kafka_exporter_url
+
+- name: "Download latest kafka_exporter release"
+  ansible.builtin.get_url:
+    url: "{{ kafka_exporter_url.stdout }}"
+    dest: "/tmp/kafka_exporter-linux-amd64.tar.gz"
+  when: kafka_exporter_url.stdout != ""
+
+- name: "Extract kafka_exporter file"
+  ansible.builtin.unarchive:
+    src: /tmp/kafka_exporter-linux-amd64.tar.gz
+    dest: /tmp/
+    remote_src: yes
+
+- name: "Move kafka_exporter binaries"
+  ansible.builtin.copy:
+    src: /tmp/kafka_exporter-linux-amd64/kafka_exporter
+    dest: /usr/local/bin/kafka_exporter
+    owner: kafka_exporter
+    group: kafka_exporter
+    mode: '0755'
+
+- name: "Copy kafka_exporter service file"
+  ansible.builtin.template:
+    src: kafka_exporter.service.j2
+    dest: /etc/systemd/system/kafka_exporter.service
+    owner: root
+    group: root
+  notify:
+    - Start kafka_exporter
+
+- name: "Clean up temporary files"
+  ansible.builtin.file:
+    path: "/tmp/kafka_exporter-linux-amd64"
+    state: absent

@@ -1,0 +1,11 @@
+groups:
+- name: DeadMan
+  rules:
+  - alert: DeadMansSwitch
+    expr: vector(1)
+    labels:
+      severity: none
+      notification: deadmans-switch
+    annotations:
+      summary: "This is a DeadMansSwitch to ensure that the Alerting pipeline is functional. This should always be firing. NEVER silence it"
+      description: "Check for Alertmanager service at {{ $labels.client }}"

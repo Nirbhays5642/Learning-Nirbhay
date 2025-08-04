@@ -1,0 +1,19 @@
+---
+# handlers file for node-exporter
+- name: "Start node_exporter"
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: node_exporter.service
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: "Start sysstat"
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: sysstat
+    state: started
+    enabled: yes
+    daemon_reload: yes

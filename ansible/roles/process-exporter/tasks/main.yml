@@ -1,0 +1,74 @@
+---
+# tasks file for process-exporter
+- name: "Create process_exporter user"
+  ansible.builtin.user:
+    name: process_exporter
+    shell: /bin/false
+    create_home: no
+
+- name: "Create process_exporter group"
+  ansible.builtin.group:
+    name: process_exporter
+    state: present
+
+- name: "Get latest process_exporter release URL"
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/ncabatoff/process-exporter/releases/latest | \
+    grep "browser_download_url.*linux-amd64.tar.gz" | \
+    cut -d '"' -f 4
+  register: process_exporter_url
+
+- name: "Download latest process_exporter release"
+  ansible.builtin.get_url:
+    url: "{{ process_exporter_url.stdout }}"
+    dest: "/tmp/process-exporter-linux-amd64.tar.gz"
+  when: process_exporter_url.stdout != ""
+
+- name: "Create a directory if it does not exist"
+  ansible.builtin.file:
+    path: /tmp/process-exporter-linux-amd64
+    state: directory
+
+- name: "Extract process_exporter file"
+  ansible.builtin.unarchive:
+    src: /tmp/process-exporter-linux-amd64.tar.gz
+    dest: /tmp/
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+
+- name: "Move process_exporter binaries"
+  ansible.builtin.copy:
+    src: /tmp/process-exporter-linux-amd64/process-exporter
+    dest: /usr/local/bin/process-exporter
+    owner: process_exporter
+    group: process_exporter
+    mode: '0755'
+
+- name: Create the process exporter config directory
+  ansible.builtin.file:
+    path: /etc/process_exporter/
+    state: present
+    owner: process_exporter
+    group: process_exporter
+    mode: 0755
+
+- name: Copying process exporter config file
+  copy:
+    src: process_exporter.yaml
+    dest: /etc/process_exporter/process_exporter.yaml
+    owner: process_exporter
+    group: process_exporter
+
+- name: "Copy process_exporter service file"
+  ansible.builtin.copy:
+    src: process_exporter.service
+    dest: /etc/systemd/system/process_exporter.service
+    owner: root
+    group: root
+  notify:
+    - Start process_exporter
+
+- name: "Clean up temporary files"
+  ansible.builtin.file:
+    path: "/tmp/process-exporter-linux-amd64"
+    state: absent

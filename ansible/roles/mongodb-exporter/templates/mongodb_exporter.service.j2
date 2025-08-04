@@ -1,0 +1,23 @@
+[Unit]
+Description=MongoDB Exporter
+After=network.target
+
+[Service]
+User=mongodb_exporter
+Group=mongodb_exporter
+Type=simple
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/local/bin/mongodb_exporter \
+    --collector.diagnosticdata \
+    --collector.replicasetstatus \
+    --collector.dbstats \
+    --collector.topmetrics \
+    --collect-all \
+    --collector.indexstats \
+    --collector.collstats \
+    --metrics.overridedescendingindex \
+    --mongodb.uri=mongodb://mongodb_exporter:exportMe321@{{ mongodb_host }}:{{ mongodb_port }} \
+    --web.listen-address=":9216"
+
+[Install]
+WantedBy=multi-user.target

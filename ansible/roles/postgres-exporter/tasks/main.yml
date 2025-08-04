@@ -1,0 +1,60 @@
+---
+# tasks file for postgres-exporter
+- name: "Create postgres_exporter user"
+  ansible.builtin.user:
+    name: postgres_exporter
+    shell: /bin/false
+    create_home: no
+
+- name: "Create postgres_exporter group"
+  ansible.builtin.group:
+    name: postgres_exporter
+    state: present
+
+- name: "Get latest postgres_exporter release URL"
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/prometheus-community/postgres_exporter/releases/latest | \
+    grep "browser_download_url.*linux-amd64.tar.gz" | \
+    cut -d '"' -f 4
+  register: postgres_exporter_url
+
+- name: "Download latest postgres_exporter release"
+  ansible.builtin.get_url:
+    url: "{{ postgres_exporter_url.stdout }}"
+    dest: "/tmp/postgres_exporter-linux-amd64.tar.gz"
+  when: postgres_exporter_url.stdout != ""
+
+- name: "Extract postgres_exporter file"
+  ansible.builtin.unarchive:
+    src: /tmp/postgres_exporter-linux-amd64.tar.gz
+    dest: /tmp/
+    remote_src: yes
+
+- name: "Move postgres_exporter binaries"
+  ansible.builtin.copy:
+    src: /tmp/postgres_exporter-linux-amd64/postgres_exporter
+    dest: /usr/local/bin/postgres_exporter
+    owner: postgres_exporter
+    group: postgres_exporter
+    mode: '0755'
+
+- name: "Copying credentials file."
+  ansible.builtin.template:
+    src: postgres_exporter.cnf.j2
+    dest: /etc/.postgres_exporter.cnf
+    owner: postgres_exporter
+    group: postgres_exporter
+
+- name: "Copy postgres_exporter service file"
+  ansible.builtin.copy:
+    src: postgres_exporter.service
+    dest: /etc/systemd/system/postgres_exporter.service
+    owner: root
+    group: root
+  notify:
+    - Start postgres_exporter
+
+- name: "Clean up temporary files"
+  ansible.builtin.file:
+    path: "/tmp/postgres_exporter-linux-amd64"
+    state: absent

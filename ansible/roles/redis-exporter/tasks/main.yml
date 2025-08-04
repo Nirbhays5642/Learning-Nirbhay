@@ -1,0 +1,53 @@
+---
+# tasks file for redis-exporter
+- name: "Create redis_exporter user"
+  ansible.builtin.user:
+    name: redis_exporter
+    shell: /bin/false
+    create_home: no
+
+- name: "Create redis_exporter group"
+  ansible.builtin.group:
+    name: redis_exporter
+    state: present
+
+- name: "Get latest redis_exporter release URL"
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/oliver006/redis_exporter/releases/latest | \
+    grep "browser_download_url.*linux-amd64.tar.gz" | \
+    cut -d '"' -f 4
+  register: redis_exporter_url
+
+- name: "Download latest redis_exporter release"
+  ansible.builtin.get_url:
+    url: "{{ redis_exporter_url.stdout }}"
+    dest: "/tmp/redis_exporter-linux-amd64.tar.gz"
+  when: redis_exporter_url.stdout != ""
+
+- name: "Extract redis_exporter file"
+  ansible.builtin.unarchive:
+    src: /tmp/redis_exporter-linux-amd64.tar.gz
+    dest: /tmp/
+    remote_src: yes
+
+- name: "Move redis_exporter binaries"
+  ansible.builtin.copy:
+    src: /tmp/redis_exporter-linux-amd64/redis_exporter
+    dest: /usr/local/bin/redis_exporter
+    owner: redis_exporter
+    group: redis_exporter
+    mode: '0755'
+
+- name: "Copy redis_exporter service file"
+  ansible.builtin.copy:
+    src: redis_exporter.service
+    dest: /etc/systemd/system/redis_exporter.service
+    owner: root
+    group: root
+  notify:
+    - Start redis_exporter
+
+- name: "Clean up temporary files"
+  ansible.builtin.file:
+    path: "/tmp/redis_exporter-linux-amd64"
+    state: absent

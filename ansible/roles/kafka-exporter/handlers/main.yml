@@ -1,0 +1,10 @@
+---
+# handlers file for kafka_exporter
+- name: "Start kafka_exporter"
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: kafka_exporter.service
+    enabled: yes
+    state: started
+    daemon_reload: yes

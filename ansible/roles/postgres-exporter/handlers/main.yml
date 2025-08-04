@@ -1,0 +1,10 @@
+---
+# handlers file for postgres-exporter
+- name: "Start postgres_exporter"
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: postgres_exporter.service
+    enabled: yes
+    state: started
+    daemon_reload: yes

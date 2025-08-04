@@ -1,0 +1,5 @@
+# ignore all files ending in env.yaml
+*env.yaml
+
+# keep sample-env.yaml file
+!sample-env.yaml

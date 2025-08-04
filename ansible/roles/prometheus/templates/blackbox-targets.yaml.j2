@@ -1,0 +1,7 @@
+{% for target in group.targets %}
+- labels:
+    name: "{{ target.name }}"
+    module: "{{ target.module }}"
+  targets:
+    - "{{ target.url }}"
+{% endfor %}

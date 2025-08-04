@@ -1,0 +1,17 @@
+[Unit]
+Description=Process Exporter
+Documentation=https://github.com/ncabatoff/process-exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=process_exporter
+Group=process_exporter
+Type=simple
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/local/bin/process-exporter \
+    --config.path=/etc/process_exporter/process_exporter.yaml \
+    --web.listen-address=:9256
+
+[Install]
+WantedBy=multi-user.target

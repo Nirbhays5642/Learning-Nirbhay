@@ -1,0 +1,39 @@
+groups:
+- name: MongodbExporter
+  rules:
+#  MongoDB instance is down
+  - alert: MongodbDown
+    expr: mongodb_up == 0
+    for: 0m
+    labels:
+      severity: critical
+    annotations:
+      summary: MongoDB Down (instance {{ $labels.instance }})
+      description: "MongoDB instance is down\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  MongoDB replica member is not healthy
+  - alert: MongodbReplicaMemberUnhealthy
+    expr: mongodb_rs_members_health == 0
+    for: 0m
+    labels:
+      severity: critical
+    annotations:
+      summary: Mongodb replica member unhealthy (instance {{ $labels.instance }})
+      description: "MongoDB replica member is not healthy\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  Mongodb replication lag is more than 10s
+  - alert: MongodbReplicationLag
+    expr: (mongodb_rs_members_optimeDate{member_state="PRIMARY"} - on (set) group_right mongodb_rs_members_optimeDate{member_state="SECONDARY"}) / 1000 > 10
+    for: 0m
+    labels:
+      severity: critical
+    annotations:
+      summary: MongoDB replication lag (instance {{ $labels.instance }})
+      description: "Mongodb replication lag is more than 10s\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+#  Too many connections (> 80%)
+  - alert: MongodbTooManyConnections
+    expr: avg by(instance) (rate(mongodb_ss_connections{conn_type="current"}[1m])) / avg by(instance) (sum (mongodb_ss_connections) by (instance)) * 100 > 80
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: MongoDB too many connections (instance {{ $labels.instance }})
+      description: "Too many connections (> 80%)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"

@@ -1,0 +1,75 @@
+---
+# tasks file for blackbox-exporter
+- name: "Create blackbox_exporter user"
+  ansible.builtin.user:
+    name: blackbox_exporter
+    shell: /bin/false
+    create_home: no
+
+- name: "Create blackbox_exporter group"
+  ansible.builtin.group:
+    name: blackbox_exporter
+    state: present
+
+- name: "Get latest blackbox_exporter release URL"
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/prometheus/blackbox_exporter/releases/latest | \
+    grep "browser_download_url.*linux-amd64.tar.gz" | \
+    cut -d '"' -f 4
+  register: blackbox_exporter_url
+
+- name: "Download latest blackbox_exporter release"
+  ansible.builtin.get_url:
+    url: "{{ blackbox_exporter_url.stdout }}"
+    dest: "/tmp/blackbox_exporter-linux-amd64.tar.gz"
+  when: blackbox_exporter_url.stdout != ""
+
+- name: "Create a directory if it does not exist"
+  ansible.builtin.file:
+    path: /tmp/blackbox_exporter-linux-amd64
+    state: directory
+
+- name: "Extract blackbox_exporter file"
+  ansible.builtin.unarchive:
+    src: /tmp/blackbox_exporter-linux-amd64.tar.gz
+    dest: /tmp/blackbox_exporter-linux-amd64
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+
+- name: "Move blackbox_exporter binaries"
+  ansible.builtin.copy:
+    src: /tmp/blackbox_exporter-linux-amd64/blackbox_exporter
+    dest: /usr/local/bin/blackbox_exporter
+    owner: blackbox_exporter
+    group: blackbox_exporter
+    mode: '0755'
+
+- name: "Copy blackbox service file"
+  ansible.builtin.copy:
+    src: blackbox_exporter.service
+    dest: /etc/systemd/system/blackbox_exporter.service
+    owner: root
+    group: root
+
+- name: "Create blackbox config directory"
+  ansible.builtin.file:
+    path: /etc/blackbox_exporter
+    state: directory
+    owner: blackbox_exporter
+    group: blackbox_exporter
+    mode: '0755'
+
+- name: "Copy blackbox configuration."
+  ansible.builtin.copy:
+    src: blackbox_exporter.yaml
+    dest: /etc/blackbox_exporter/blackbox_exporter.yaml
+    owner: blackbox_exporter
+    group: blackbox_exporter
+    mode: 0644
+  notify:
+    - Start blackbox_exporter
+
+- name: "Clean up temporary files"
+  ansible.builtin.file:
+    path: "/tmp/blackbox_exporter-linux-amd64"
+    state: absent

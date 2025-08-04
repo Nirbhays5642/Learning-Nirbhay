@@ -1,0 +1,6 @@
+## It is a sample file, kindly create the env.yaml file, and add the require variable with suitable values.
+
+###provider###
+
+## value either aws, gcp, azure, or on-prem
+# provider: aws

@@ -1,0 +1,53 @@
+---
+# tasks file for elasticsearch-exporter
+- name: "Create elasticsearch_exporter user"
+  ansible.builtin.user:
+    name: elasticsearch_exporter
+    shell: /bin/false
+    create_home: no
+
+- name: "Create elasticsearch_exporter group"
+  ansible.builtin.group:
+    name: elasticsearch_exporter
+    state: present
+
+- name: "Get latest elasticsearch_exporter release URL"
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/prometheus-community/elasticsearch_exporter/releases/latest | \
+    grep "browser_download_url.*linux-amd64.tar.gz" | \
+    cut -d '"' -f 4
+  register: elasticsearch_exporter_url
+
+- name: "Download latest elasticsearch_exporter release"
+  ansible.builtin.get_url:
+    url: "{{ elasticsearch_exporter_url.stdout }}"
+    dest: "/tmp/elasticsearch_exporter-linux-amd64.tar.gz"
+  when: elasticsearch_exporter_url.stdout != ""
+
+- name: "Extract elasticsearch_exporter file"
+  ansible.builtin.unarchive:
+    src: /tmp/elasticsearch_exporter-linux-amd64.tar.gz
+    dest: /tmp/
+    remote_src: yes
+
+- name: "Move elasticsearch_exporter binaries"
+  ansible.builtin.copy:
+    src: /tmp/elasticsearch_exporter-linux-amd64/elasticsearch_exporter
+    dest: /usr/local/bin/elasticsearch_exporter
+    owner: elasticsearch_exporter
+    group: elasticsearch_exporter
+    mode: '0755'
+
+- name: "Copy elasticsearch_exporter service file"
+  ansible.builtin.template:
+    src: elasticsearch_exporter.service.j2
+    dest: /etc/systemd/system/elasticsearch_exporter.service
+    owner: root
+    group: root
+  notify:
+    - Start elasticsearch_exporter
+
+- name: "Clean up temporary files"
+  ansible.builtin.file:
+    path: "/tmp/elasticsearch_exporter-linux-amd64"
+    state: absent

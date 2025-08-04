@@ -1,0 +1,96 @@
+---
+- name: "Fetch all groups for hosts"
+  hosts: localhost
+  gather_facts: false
+  vars:
+    instances_list: []
+  tasks:
+    - name: Save group_names
+      ansible.builtin.set_fact:
+        group_names: "{{ groups.keys() | reject('in', ['all', 'ungrouped', 'aws_ec2']) | list }}"
+
+    - name: "Display group names"
+      ansible.builtin.debug:
+        var: group_names
+
+    - name: Get group-wise instance list.
+      ansible.builtin.set_fact:
+        instances_list: "{{ instances_list + [instances] }}"
+      vars:
+        instances:
+          Group: "{{ item }}"
+          Hosts: "{{ groups[item] }}"
+      loop: "{{ group_names }}"
+
+    - name: Group-wise instance list.
+      ansible.builtin.debug:
+        var: instances_list
+
+- name: "Install Node exporters on all instances" 
+  hosts: aws_ec2
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - node-exporter
+
+- name: "Install Process exporters on all instances" 
+  hosts: process
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - process-exporter
+
+- name: "Install Mysql exporters on all instances" 
+  hosts: mysql
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - mysql-exporter
+
+- name: "Install Mongodb exporters on all instances" 
+  hosts: mongodb
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - mongodb-exporter
+
+- name: "Install Redis exporters on all instances" 
+  hosts: redis
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - redis-exporter
+
+- name: "Install Postgres exporters on all instances" 
+  hosts: postgres
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - postgres-exporter
+
+- name: "Install Elasticsearch exporters on all instances" 
+  hosts: elasticsearch
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - elasticsearch-exporter
+
+- name: "Install Kafka exporters on all instances" 
+  hosts: kafka
+  vars_files:
+    - vars/main.yaml
+  roles:
+    - kafka-exporter
+
+- name: "Setup Monitoring Stack"
+  hosts: monitoring_node
+  vars_files:
+    - vars/main.yaml
+    - vars/blackbox_targets_vars.yaml
+  vars:
+    group_names: "{{ hostvars['localhost'].group_names }}"
+  roles:
+    - prometheus
+    - grafana
+    - alertmanager
+    - blackbox-exporter

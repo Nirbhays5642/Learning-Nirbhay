@@ -1,0 +1,17 @@
+[Unit]
+Description=Redis Exporter
+After=network.target
+
+[Service]
+User=redis_exporter
+Group=redis_exporter
+Type=simple
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/local/bin/redis_exporter  \
+    --redis.addr=redis://127.0.0.1:6379 \
+    --web.listen-address=:9121  \
+    --web.telemetry-path=/metrics \
+    --config-command='config get *maxP*'
+
+[Install]
+WantedBy=multi-user.target

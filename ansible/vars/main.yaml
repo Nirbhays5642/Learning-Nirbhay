@@ -1,0 +1,83 @@
+## client name
+client_name: Techpartner
+
+
+
+## server/vm provider
+# aws, gcp, azure, on-prem
+provider: aws
+
+
+
+## for grafana
+grafana_url: "http://localhost:3000"
+
+
+
+## for prometheus
+prometheus_url: "http://localhost:9090/"
+
+
+
+## for alertmanager
+alertmanager_url: "http://localhost:9093/"
+# smtp variable
+smtp_smarthost: "email-smtp.us-east-1.amazonaws.com:587"
+smtp_from: "alertmanager@mydomain.com"
+smtp_require_tls: True
+smtp_auth_username: "AkjfwjkeETS7MQ-dummy"
+smtp_auth_password: "password_changeme"
+
+# slack variable
+slack_url: "https://hooks.slack.com/services/XXXX/XXXX/XXXX"
+slack_channel: "#medvarsity-alerts"
+
+# email list variable
+email_list:
+  - "alerts@company.com"
+  - "devops@company.com"
+
+# squadcast variable
+squadcast_url: "https://api.squadcast.com/v1/incidents"
+
+# deadmans switch variable
+deadmans_url: "https://hc-ping.com/e1f74fc4-46ff-4a30-bc2c-06359dea4bfb"
+
+
+
+## for mysql-exporter
+# mysql connection
+mysql_host: "neeraj-test-database.cph3xqvqytld.us-east-1.rds.amazonaws.com"
+mysql_port: 3306
+
+
+
+## for mongodb-exporter
+# mongodb connection
+mongodb_host: ""
+mongodb_port: 3306
+
+
+
+## for postgres-exporter
+# postgres connection
+postgres_host: ""
+postgres_port: 5432
+
+
+
+## for redis-exporter
+redis_host:
+redis_port:
+
+
+
+## for elasticsearch-exporter
+elastic_url: "https://elastic:Xl044wwy3uRPHFacBfv_@127.0.0.1:9200"
+elastic_ca_crt_path: "/usr/local/elasticsearch/http_ca.crt"
+
+
+
+## for kafka-exporter
+kafka_host:
+kafka_port:

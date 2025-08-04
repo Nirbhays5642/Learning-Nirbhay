@@ -1,0 +1,79 @@
+---
+# tasks file for node-exporter
+
+- name: Install system monitoring packages
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - glances
+    - sysstat
+    - iftop
+
+- name: Configure sysstat after installation
+  become: true
+  replace:
+      path: /etc/default/sysstat
+      regexp: 'false'
+      replace: "true"  
+  notify:
+    - Start sysstat
+
+- name: "Create node_exporter user"
+  ansible.builtin.user:
+    name: node_exporter
+    shell: /bin/false
+    create_home: no
+
+- name: "Create node_exporter group"
+  ansible.builtin.group:
+    name: node_exporter
+    state: present
+
+- name: "Get latest node_exporter release URL"
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/prometheus/node_exporter/releases/latest | \
+    grep "browser_download_url.*linux-amd64.tar.gz" | \
+    cut -d '"' -f 4
+  register: node_exporter_url
+
+- name: "Download latest node_exporter release"
+  ansible.builtin.get_url:
+    url: "{{ node_exporter_url.stdout }}"
+    dest: "/tmp/node_exporter-linux-amd64.tar.gz"
+  when: node_exporter_url.stdout != ""
+
+- name: "Create a directory if it does not exist"
+  ansible.builtin.file:
+    path: /tmp/node_exporter-linux-amd64
+    state: directory
+
+- name: "Extract node_exporter file"
+  ansible.builtin.unarchive:
+    src: /tmp/node_exporter-linux-amd64.tar.gz
+    dest: /tmp/node_exporter-linux-amd64
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+
+- name: "Move node_exporter binaries"
+  ansible.builtin.copy:
+    src: /tmp/node_exporter-linux-amd64/node_exporter
+    dest: /usr/local/bin/node_exporter
+    owner: node_exporter
+    group: node_exporter
+    mode: '0755'
+
+- name: "Copy node_exporter service file"
+  ansible.builtin.copy:
+    src: node_exporter.service
+    dest: /etc/systemd/system/node_exporter.service
+    owner: root
+    group: root
+  notify:
+    - Start node_exporter
+
+- name: "Clean up temporary files"
+  ansible.builtin.file:
+    path: "/tmp/node_exporter-linux-amd64"
+    state: absent

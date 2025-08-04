@@ -1,0 +1,60 @@
+---
+# tasks file for mysql-exporter
+- name: "Create mysql_exporter user"
+  ansible.builtin.user:
+    name: mysql_exporter
+    shell: /bin/false
+    create_home: no
+
+- name: "Create mysql_exporter group"
+  ansible.builtin.group:
+    name: mysql_exporter
+    state: present
+
+- name: "Get latest mysql_exporter release URL"
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/prometheus/mysqld_exporter/releases/latest | \
+    grep "browser_download_url.*linux-amd64.tar.gz" | \
+    cut -d '"' -f 4
+  register: mysql_exporter_url
+
+- name: "Download latest mysql_exporter release"
+  ansible.builtin.get_url:
+    url: "{{ mysql_exporter_url.stdout }}"
+    dest: "/tmp/mysql_exporter-linux-amd64.tar.gz"
+  when: mysql_exporter_url.stdout != ""
+
+- name: "Extract mysql_exporter file"
+  ansible.builtin.unarchive:
+    src: /tmp/mysql_exporter-linux-amd64.tar.gz
+    dest: /tmp/
+    remote_src: yes
+
+- name: "Move mysql_exporter binaries"
+  ansible.builtin.copy:
+    src: /tmp/mysql_exporter-linux-amd64/mysqld_exporter
+    dest: /usr/local/bin/mysqld_exporter
+    owner: mysql_exporter
+    group: mysql_exporter
+    mode: '0755'
+
+- name: "Copying credentials file."
+  ansible.builtin.template:
+    src: mysql_exporter.cnf.j2
+    dest: /etc/.mysql_exporter.cnf
+    owner: mysql_exporter
+    group: mysql_exporter
+
+- name: "Copy mysql_exporter service file"
+  ansible.builtin.copy:
+    src: mysql_exporter.service
+    dest: /etc/systemd/system/mysql_exporter.service
+    owner: root
+    group: root
+  notify:
+    - Start mysql_exporter
+
+- name: "Clean up temporary files"
+  ansible.builtin.file:
+    path: "/tmp/mysql_exporter-linux-amd64"
+    state: absent

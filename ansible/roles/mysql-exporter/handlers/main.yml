@@ -1,0 +1,10 @@
+---
+# handlers file for mysql-exporter
+- name: "Start mysql_exporter"
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: mysql_exporter.service
+    enabled: yes
+    state: started
+    daemon_reload: yes

@@ -1,0 +1,10 @@
+---
+# handlers file for blackbox-exporter
+- name: "Start blackbox_exporter"
+  become: true
+  become_method: sudo
+  ansible.builtin.systemd:
+    name: blackbox_exporter.service
+    enabled: yes
+    state: started
+    daemon_reload: yes

@@ -1,0 +1,37 @@
+// slack title
+{{ define "slack.title" -}}
+
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ len .Alerts.Firing }}{{ end }}] {{ .CommonLabels.alertname }} for {{ .CommonLabels.instance }} {{ .CommonLabels.privateip }}
+
+{{- end }}
+
+
+// slack message
+{{ define "slack.text" -}}
+
+*🔔 Alert details:*
+
+{{ range .Alerts -}}
+*• Client:* {{ .Labels.client }}
+*• Alert:* {{ .Annotations.title }}{{ with .Labels.severity }} - `{{ . }}`{{ end }}
+*• Summary:* {{ .Annotations.summary }}
+*• Description:* {{ .Annotations.description }}
+
+{{ end }}
+
+{{- end }}
+
+
+// slack action: silence url
+{{ define "slack.silence_url" -}}
+
+{{- $filter := printf "{alertname=%q, client=%q, instance=%q, job=%q, severity=%q}"
+  .CommonLabels.alertname
+  .CommonLabels.client
+  .CommonLabels.instance
+  .CommonLabels.job
+  .CommonLabels.severity -}}
+{{ .ExternalURL }}/#/silences/new?filter={{ reReplaceAll "\\+" "%20" (urlquery $filter) }}
+
+{{- end }}
+

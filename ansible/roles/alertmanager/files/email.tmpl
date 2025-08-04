@@ -1,0 +1,6 @@
+// email subject
+{{ define "email.subject" -}}
+
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ len .Alerts.Firing }}{{ end }}] {{ .CommonLabels.alertname }} for {{ .CommonLabels.instance }} {{ .CommonLabels.privateip }}
+
+{{- end }}

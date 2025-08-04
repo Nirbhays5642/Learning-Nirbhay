@@ -1,0 +1,96 @@
+# my global config
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  # scrape_timeout is set to the global default (10s).
+
+  external_labels:
+    client: "{{ client_name }}"
+    dashboard_url: "{{ grafana_url }}"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 0.0.0.0:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  - "rules/host-rules.yaml"
+  - "rules/deadmans-rules.yaml"
+  - "rules/blackbox-rules.yaml"
+{% for group in group_names if group != "monitoring_node" %}
+  - "rules/{{ group }}-rules.yaml"
+{% endfor %}
+
+# A scrape configuration containing exactly one endpoint to scrape:
+scrape_configs:
+
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          instance: prometheus
+
+  - job_name: "alertmanager"
+    static_configs:
+      - targets: ["localhost:9093"]
+        labels:
+          instance: alertmanager
+
+  - job_name: 'node-exporter'
+    ec2_sd_configs:
+      - region: "{{ lookup('env', 'AWS_REGION') | default('us-east-1') }}"
+        port: 9100
+    relabel_configs:
+      - source_labels: [__meta_ec2_instance_state]
+        regex: running
+        action: keep
+      - source_labels: [__meta_ec2_tag_Environment]
+        regex: ^(prod|production|preprod|staging)$
+        action: keep
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance
+      - source_labels: [__meta_ec2_public_ip]
+        target_label: public_ip
+      - source_labels: [__meta_ec2_private_ip]
+        target_label: private_ip
+
+{% for group in group_names if group not in ["monitoring_node"] %}
+  - job_name: '{{ group }}-exporter'
+    ec2_sd_configs:
+      - region: "{{ lookup('env', 'AWS_REGION') | default('us-east-1') }}"
+        port: {{ exporter_ports.get(group) }}
+    relabel_configs:
+      - source_labels: [__meta_ec2_instance_state]
+        regex: running
+        action: keep
+      - source_labels: [__meta_ec2_tag_Environment]
+        regex: ^(prod|production|preprod|staging)$
+        action: keep
+      - source_labels: [__meta_ec2_tag_{{ group }}]
+        regex: yes
+        action: keep
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance
+
+{% endfor %}
+
+{% for key, group in blackbox_targets.items() %}
+  - job_name: '{{ group.job_name }}'
+    metrics_path: /probe
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/{{ group.job_name }}.yaml
+    relabel_configs:
+      - source_labels: [module]
+        target_label: __param_module
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9115
+
+{% endfor %}
